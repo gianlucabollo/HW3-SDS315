@@ -1,0 +1,114 @@
+---
+title: "Homework 3 - SDS 315"
+author: "Gianluca Bollo (gb25625): https://github.com/gianlucabollo/HW3-SDS315.git"
+date: "2/6/2024"
+output:
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+```{r import packages and data}
+library(tidyverse)
+library(mosaic)
+library(knitr)
+creatinine <- read.csv('creatinine.csv')
+```
+
+```{r question one}
+ggplot(creatinine) + 
+  geom_point(aes(x = age, y = creatclear)) +
+  geom_smooth(aes(x = age, y = creatclear), method = 'lm') +
+  labs(x = 'Age', y = 'Creatinine Clearance Rate (mL/min)', title = "Creatinine clearance rate by age")
+
+creatinine_regression <- lm(creatclear ~ age, data = creatinine)
+creatinine_coefs <- coef(creatinine_regression)
+intercept <- round(as.numeric(creatinine_coefs[1]), 3)
+slope <- round(as.numeric(creatinine_coefs[2]), 3)
+fiftyfive_pred <- round(as.numeric((55 * slope) + intercept), 3)
+forty_pred <- round(as.numeric((40 * slope) + intercept), 3)
+sixty_pred <- round(as.numeric((60 * slope) + intercept), 3)
+```
+
+Above is a linear regression model based of the creatinine data set, with variables representing age and creatinine clearance. The figure represents creatinine clearance as a model of age, using the geom_smooth() and lm() functions. From this, I calculated the intercept and slope of the model using the coef() function. Then, I used these values to setup the equation of the line, y = `r slope`x + `r intercept` and then plugged in 55 as x. The result, or predicted creatinine clearance rate for a 55 year old is `r fiftyfive_pred`. According to the slope of the model, creatinine clerance rates change by `r slope` mL/min per year of age. To make fair comparisons with this model, we will compare two ages and their actual vs predicted creatinine clearance rates. The predicted rate for a 40 year old is `r forty_pred` and the predicted rate for a 60 year old is `r sixty_pred`. Now, lets subtract these numbers from their actual rates:
+
+40 year old with a rate of 132: `r 135 - forty_pred`
+
+60 year old with a rate of 112: `r 112 - sixty_pred`
+
+Although both people have better (higher) creatinine clearance rates than what the model predicts, the forty year old has a higher residual than the 60 year old, which is therefore a healthier clearance rate for his age.
+
+\newpage
+
+```{r question two}
+market <- read.csv('marketmodel.csv')
+
+col_names = colnames(market)[3:8]
+slopes_list <- c()
+intercepts_list <- c()
+rsq_list <- c()
+
+for (col in col_names) {
+  formula <- as.formula(paste(col, ' ~ SPY'))
+  model <- lm(formula, data = market)
+  intercepts_list <- c(intercepts_list, coef(model)[1])
+  slopes_list <- c(slopes_list, coef(model)[2])
+  rsq_list <- c(rsq_list, rsquared(model))
+}
+
+kable(tibble(Ticker = col_names, Intercept = intercepts_list, Slope = slopes_list, RSquared = rsq_list), 
+      caption = 'CAPM Regression Summary Table')
+```
+
+The table above displays the regression statistics of six stocks as models of the S&P 500. The ticker column represents the ticker symbol for each stock, r squared represents the predictability of each stocks daily return percentage in terms of the S&P 500's daily return percentage, the intercept (beta zero or 'alpha') represents the y intercept of the regression model, and the slope (beta one or 'beta') represents the change in the stocks daily return percentage per daily percentage change of the S&P 500.
+
+Beta one, referred to as beta, is a very important financial measurement that measures the systematic risk of an asset. If the percentage return of a stock changes minimally when the market portfolio percentage return changes by one, the systematic risk of that asset is less, and therefore the beta value is less (opposite is true when a stock experiences large change). Simply put, systematic risk and beta are both terms that represent the sensitivity of a stocks return to changes in the return of the market portfolio. The beta of an average firm is considered to be 1.0, so stocks with beta values below 1.0 are considered to have less systematic risk than average and stocks above 1.0 have more systematic risk than average. 
+
+The Capital Asset Pricing Model relies on this basic assumption that an individual stocks return is linearly related to the return of the stock market. Therefore, each asset's return can be represented with a linear regression model where the beta is initialized to represent this relation (slope of the model). To reiterate, the beta of an asset is calculated as the change in the stocks daily return percentage per daily percentage change of the S&P 500.
+
+For the analysis displayed in the table, the stock with the lowest systematic risk is Walmart Inc (WMT), with a beta value of `r min(slopes_list)`. The stock with the highest systematic risk is Apple Inc (AAPL), with a beta value of `r max(slopes_list)`.
+
+\newpage
+
+```{r question three}
+covid <- read.csv('covid.csv')
+
+spain_covid <- filter(covid, country == 'Spain')
+italy_covid <- filter(covid, country == 'Italy')
+
+lm_spain = lm(log(deaths) ~ days_since_first_death, data = spain_covid)
+spain_coef <- coef(lm_spain)
+
+lm_italy = lm(log(deaths) ~ days_since_first_death, data = italy_covid)
+italy_coef <- coef(lm_italy)
+
+spain_rate <- round(spain_coef[2] * 100, 3)
+italy_rate <- round(italy_coef[2] * 100, 3)
+
+kable(tibble(Country = c('Spain', 'Italy'), Intercept = c(spain_coef[1], italy_coef[1]),
+             Slope = c(spain_coef[2], italy_coef[2])), caption = 'Fitted Covid Statistics')
+
+ggplot(covid) +
+  geom_line(aes(x = days_since_first_death, y = deaths, color = country)) +
+  labs(x = 'Days since first death', y = 'Daily Deaths', title = 'Daily covid deaths over time')
+```
+The estimated growth rate for the daily Covid-19 death total in Spain was `r spain_rate`%, which is a doubling time of approximately `r round(70/spain_rate)` day(s). For Italy, the rate was `r italy_rate`%, which is a doubling time of `r round(70/italy_rate)` day(s). The doubling time, in this context, represents the number of days for the death total to double in that region.
+
+\newpage
+
+```{r question four}
+milk <- read.csv('milk.csv')
+ggplot(milk) +
+  geom_point(aes(x = log(price), y = log(sales))) +
+  labs(title = "Log of milk price by log of milk sales")
+lm_milk = lm(log(sales) ~ log(price), data = milk)
+milk_coefs <- coef(lm_milk)
+milk_elas <- round(milk_coefs[2], 3)
+```
+The price elasticity of demand for milk is `r milk_elas`%, which means that when the price of milk inreases by 1%, we expect the sales of milk to decrease by `r milk_elas * -1`%. To come up with these numbers, I made a linear model in the form of a power law, taking the log of sales and modeling it by the log of price. I then calculated the coefficients of the model, and got the slope, which is the price elasticity of demand.
+
+
+
+
